@@ -1,24 +1,20 @@
 from ctypes import windll, wintypes, byref
-from struct import unpack, pack
+from struct import unpack
 import os
 import time
-import copy
 import ctypes
-#import keyboard
 import psutil
-import math
+import subprocess
 
 wintypes = ctypes.wintypes
 windll = ctypes.windll
 create_string_buffer = ctypes.create_string_buffer
 byref = ctypes.byref
-WriteMem = windll.kernel32.WriteProcessMemory
 ReadMem = windll.kernel32.ReadProcessMemory
 OpenProcess = windll.kernel32.OpenProcess
 Module32Next = windll.kernel32.Module32Next
 Module32First = windll.kernel32.Module32First
 CreateToolhelp32Snapshot = windll.kernel32.CreateToolhelp32Snapshot
-CloseHandle = windll.kernel32.CloseHandle
 sizeof = ctypes.sizeof
 
 class MODULEENTRY32(ctypes.Structure):
@@ -47,8 +43,6 @@ while pid == 0:
     dict_pids = pidget()
     try:
         pid = dict_pids["MBAA.exe"]
-        # pid = dict_pids["MediaMonkey.exe"]
-        # pid = dict_pids["OneDrive.exe"]
     except:
         #os.system('cls')
         print("Waiting for MBAA to start")
@@ -98,6 +92,12 @@ class para:
         
 p1Para = para(4)
 p1Para.ad = 0x159550
+
+p2Para = para(4)
+p2Para.ad = 0x159580
+
+#subprocess.run(["powershell", "-Command", ".\LaunchFrameStep.ps1"], capture_output=True)
+subprocess.run(["powershell", "-Command", ".\CCCasterAdapter.ps1 -mode \"41\""], capture_output=True)
 
 while p1Para.num != 2:
     print(p1Para.num)
