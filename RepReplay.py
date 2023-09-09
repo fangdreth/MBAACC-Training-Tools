@@ -5,6 +5,7 @@ import time
 import ctypes
 import psutil
 import subprocess
+import keyboard
 
 wintypes = ctypes.wintypes
 windll = ctypes.windll
@@ -38,19 +39,57 @@ def pidget():
     }
     return dict_pids
 
-pid = 0
-while pid == 0:
+
+CCCASTER_PATH = "C:\\Users\\willf\\WH\\MBAACC - Community Edition\\MBAACC"
+CCCASTER_PROC = "cccaster*"
+MELTY_PROC = "MBAA"
+
+currentDir = os.getcwd()
+os.chdir(CCCASTER_PATH)
+os.startfile([name for name in os.listdir() if name.startswith("cccaster") and name.endswith(".exe")][0])
+os.chdir(currentDir)
+
+cccasterPid = 0
+while cccasterPid == 0:
     dict_pids = pidget()
-    try:
-        pid = dict_pids["MBAA.exe"]
-    except:
-        #os.system('cls')
-        print("Waiting for MBAA to start")
-        time.sleep(0.2)
+    for key, value in dict_pids.items():
+        if key.startswith("cccaster") and key.endswith(".exe"):
+            cccasterPid = value
+            break
+    print("Waiting for CCCaster to open...")
+    time.sleep(0.2)
+    
+keyboard.write('4',delay=0)
+keyboard.write('5',delay=0)
+time.sleep(1)
 
-programHandle = OpenProcess(0x1F0FFF, False, pid)
+meltyPid = 0
+while meltyPid == 0:
+    dict_pids = pidget()
+    for key, value in dict_pids.items():
+        if key == "MBAA.exe":
+            meltyPid = value
+            break
+    print("Waiting for MBAA to open...")
+    time.sleep(0.2)
+      
 
-snapshot = CreateToolhelp32Snapshot(0x00000008, pid)
+
+
+
+#meltyPid = 0
+#while meltyPid == 0:
+#    dict_pids = pidget()
+#    try:
+#        meltyPid = dict_pids["MBAA.exe"]
+ #   except:
+#        #os.system('cls')
+ #       print("Waiting for MBAA to start")
+#        time.sleep(0.2)
+
+programHandle = OpenProcess(0x1F0FFF, False, meltyPid)
+
+snapshot = CreateToolhelp32Snapshot(0x00000008, meltyPid)
 
 lpme = MODULEENTRY32()
 lpme.dwSize = sizeof(lpme)
@@ -58,7 +97,7 @@ lpme.dwSize = sizeof(lpme)
 result = Module32First(snapshot, byref(lpme))
 
 # not going into this because Module32First is working fine
-while pid != lpme.th32ProcessID:
+while meltyPid != lpme.th32ProcessID:
     result = Module32Next(snapshot, byref(lpme))
 
 b_baseAddr = create_string_buffer(8)
@@ -97,7 +136,7 @@ p2Para = para(4)
 p2Para.ad = 0x159580
 
 #subprocess.run(["powershell", "-Command", ".\LaunchFrameStep.ps1"], capture_output=True)
-subprocess.run(["powershell", "-Command", ".\CCCasterAdapter.ps1 -mode \"41\""], capture_output=True)
+#subprocess.run(["powershell", "-Command", ".\CCCasterAdapter.ps1 -mode \"41\" -slot \"1\""], capture_output=True)
 
 while p1Para.num != 2:
     print(p1Para.num)
