@@ -38,6 +38,11 @@ def pidget():
         for p in psutil.process_iter(attrs=["name", "pid"])
     }
     return dict_pids
+    
+def pressKey(key):
+    keyboard.press(key)
+    time.sleep(0.1)
+    keyboard.release(key)
 
 
 CCCASTER_PATH = "C:\\Users\\willf\\WH\\MBAACC - Community Edition\\MBAACC"
@@ -59,9 +64,7 @@ while cccasterPid == 0:
     print("Waiting for CCCaster to open...")
     time.sleep(0.2)
     
-keyboard.write('4',delay=0)
-keyboard.write('5',delay=0)
-time.sleep(1)
+keyboard.write('45',delay=1)
 
 meltyPid = 0
 while meltyPid == 0:
@@ -73,9 +76,26 @@ while meltyPid == 0:
     print("Waiting for MBAA to open...")
     time.sleep(0.2)
       
+time.sleep(5)
+pressKey('f4')
+pressKey('left')
+pressKey('left')
+pressKey('down')
+pressKey('down')
+pressKey('down')
+pressKey('down')
+pressKey('down')
+pressKey('a')
+pressKey('down')
+pressKey('b')
+pressKey('f4')
 
+repTotal = len(os.listdir("Reps"))
 
+print("Open your recording software of choice now")
+input("To begin playback, press Enter")
 
+keyboard.write('f4')
 
 #meltyPid = 0
 #while meltyPid == 0:
