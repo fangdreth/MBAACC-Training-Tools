@@ -228,7 +228,6 @@ for currentRep in range(replayTotal):
         para_get(p2ParaScore)
         
         # detect a round ending
-        print(str(oldP1Score)+" "+str(p1ParaScore.num)+" "+str(oldP2Score)+" "+str(p2ParaScore.num))
         if oldP1Score != p1ParaScore.num or oldP2Score != p2ParaScore.num:
             print("A round has ended")
             oldP1Score = p1ParaScore.num
