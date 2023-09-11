@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import keyboard
 import warnings
+import signal
+import sys
 
 wintypes = ctypes.wintypes
 windll = ctypes.windll
@@ -58,24 +60,39 @@ def getPid(appNameStart, appNameEnd=""):
     return 0
     
 def focusApp(pid):
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        app = Application().connect(process=pid)
-        app.top_window().set_focus()
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            app = Application().connect(process=pid)
+            app.top_window().set_focus()
+    except:
+        pass
     
 # melty doesn't like .send, so gotta do it manually like this
-def pressKey(key, override=False):
+def pressKey(key):
     meltyPid = getPid("MBAA.exe")
-    if meltyPid != 0 or override:
-        focusApp(meltyPid)
-        keyboard.press(key)
-        time.sleep(0.1)
-        keyboard.release(key)
-        time.sleep(0.5)
+    if meltyPid == 0:
+        wrapup()
+    focusApp(meltyPid)
+    keyboard.press(key)
+    time.sleep(0.1)
+    keyboard.release(key)
+    time.sleep(0.1)
     
 def getParameter(obj, programHandle, baseAddress):
     ReadMem(programHandle, obj.address + baseAddress, obj.b_dat, len(obj.b_dat), None)
     obj.num = unpack('l', obj.b_dat.raw)[0]
+
+def wrapup():
+    try:
+        cccasterPid = getPid("cccaster", ".exe")
+        os.kill(cccasterPid, signal.SIGTERM)
+    except:
+        pass
+    if os.path.exists("ReplayVS\\$"):
+        shutil.rmtree("ReplayVS\\$")
+    input("Press any key to close...")
+    sys.exit()
 
 class Parameter:
     def __init__(self, byteLength, address):
@@ -85,21 +102,36 @@ class Parameter:
           
 def main():
 
+    # ensure cccaster is in the same directory
+    if len([name for name in os.listdir() if name.startswith("cccaster") and name.endswith(".exe")]) == 0:
+        print("Move this executable into the same directory as CCCaster before launching it")
+        wrapup()
+    
+    # either use the folder provided as a command line argument or launch into interactive mode
+    if len(sys.argv) == 2:
+        replayPath = sys.argv[1]
+    elif len(sys.argv) == 1:
+        print("Click and drag your folder of replays onto this window then press Enter")
+        replayPath = input("==> ")
+    if not os.path.exists(replayPath):
+        print("Unable to load give replay folder")
+        wrapup()
+
     # Copy given replays to CCCCaster location and back up old replays
     if not os.path.exists("ReplayVS"):
         os.makedirs("ReplayVS")
     if os.path.exists("ReplayVS\\$"):
         shutil.rmtree("ReplayVS\\$")
-    shutil.copytree(REPLAY_PATH , "ReplayVS\\$")
+    shutil.copytree(replayPath , "ReplayVS\\$")
     replayTotal = len(os.listdir("ReplayVS\\$"))
 
+    
+
     # launch cccaster
-    currentDir = os.getcwd()
-    os.chdir(CCCASTER_PATH) # TODO change this to run in same directory as cccaster
     os.startfile([name for name in os.listdir() if name.startswith("cccaster") and name.endswith(".exe")][0])
-    os.chdir(currentDir)
 
     # wait for cccaster to open
+    os.system('cls')
     print("Waiting for CCCaster to open...")
     cccasterPid = 0
     while cccasterPid == 0:
@@ -107,10 +139,12 @@ def main():
         time.sleep(0.1)
 
     # launch replay mode
+    time.sleep(0.5)
     keyboard.write('45',delay=1)
 
 
     # wait for replay mode to launch
+    os.system('cls')
     print("Waiting for MBAA to open...")
     meltyPid = 0
     while meltyPid == 0:
@@ -126,8 +160,8 @@ def main():
     print("Or at least ensure you do not have a controller as player 1 in the f4 menu")
     print("")
     print("To begin playback immediately, just press Enter now,")
-    print("or enter a number of seconds to delay and the press Enter")
-    optionalDelay = input("==>")
+    print("or enter a number of seconds to delay and then press Enter")
+    optionalDelay = input("==> ")
     if optionalDelay != "":
         try:
             optionalDelay = abs(int(optionalDelay))
@@ -137,7 +171,9 @@ def main():
                 time.sleep(1)
         except:
             print("Invalid number entered")
+            wrapup()
     os.system('cls')
+    print("Playback has begun")
 
     # re-focus MBAA
     focusApp(meltyPid)
@@ -154,6 +190,11 @@ def main():
     pressKey('down')
     pressKey('down')
     pressKey('a')
+    pressKey('down')
+    pressKey('down')
+    pressKey('down')
+    pressKey('down')
+    pressKey('s')
     pressKey('f4')
 
     # get MBAA handle from its pid
@@ -165,40 +206,37 @@ def main():
     # get the module
     lpme = MODULEENTRY32()
     lpme.dwSize = sizeof(lpme)
-    result = Module32First(snapshot, byref(lpme))
+    Module32First(snapshot, byref(lpme))
 
-    # not going into this because Module32First is working fine
+    # probably not necessary, but won't hurt to leave
     while meltyPid != lpme.th32ProcessID:
-        result = Module32Next(snapshot, byref(lpme))
+        Module32Next(snapshot, byref(lpme))
 
     # get the base address of MBAA in memory
     b_baseAddr = create_string_buffer(8)
     b_baseAddr.raw = lpme.modBaseAddr
     baseAddress = unpack('q', b_baseAddr.raw)[0]
 
-
-
-            
-    # Player 1 score
+    # Player 1 parameters
     p1ParaScore = Parameter(4, 0x159550)
     p1ParaX = Parameter(4, 0x155140 + 0xF8)
     p1ParaY = Parameter(4, 0x155248)
+    p1ParaHealth = Parameter(4, 0x1551EC)
+    p1ParaMeter = Parameter(4, 0x155210)
 
-    # Player 2 Score
+    # Player 2 parameters
     p2ParaScore = Parameter(4, 0x159580)
     p2ParaX = Parameter(4, 0x155140 + 0xF8 + 0xAFC)
     p2ParaY = Parameter(4, 0x155248 + 0xAFC)
-
-
-    #subprocess.run(["powershell", "-Command", ".\LaunchFrameStep.ps1"], capture_output=True)
-    #subprocess.run(["powershell", "-Command", ".\CCCasterAdapter.ps1 -mode \"41\" -slot \"1\""], capture_output=True)
+    p2ParaHealth = Parameter(4, 0x1551EC + 0xAFC)
+    p2ParaMeter = Parameter(4, 0x155210 + 0xAFC)
 
     DESYNC_THRESHOLD = 30
 
     # navigate the replay menu
     for currentRep in range(replayTotal):
         pressKey('a')   # select $ folder
-        pressKey('down')# get off the "up" folder
+        pressKey('down')# get off the "go up" folder
         for i in range(currentRep):
             pressKey('down')    # go to next recording
         pressKey('a')   # select recording
@@ -207,19 +245,30 @@ def main():
         time.sleep(0.5)
         pressKey('a')   # skip intro quote
 
+        # initialize tracking variables.  these are used for detecting desyncs
         oldP1Score = 0
         oldP2Score = 0
         oldP1X = 0
         oldP1Y = 0
+        oldP1Health = 0
+        oldP1Meter = 0
         oldP2X = 0
         oldP2Y = 0
+        oldP2Health = 0
+        oldP2Meter = 0
         desyncCounter = 0
-        desynced = False
+        
+        # get these fresh to avoid carry-over values from the last recording
         getParameter(p1ParaScore, programHandle, baseAddress)
         getParameter(p2ParaScore, programHandle, baseAddress)
         
         # the game starts
         while p1ParaScore.num != 2 and p2ParaScore.num != 2:
+            
+            # bail if melty is closed
+            if getPid("MBAA.exe") == 0:
+                break
+        
             getParameter(p1ParaScore, programHandle, baseAddress)
             getParameter(p2ParaScore, programHandle, baseAddress)
             
@@ -229,45 +278,69 @@ def main():
                 oldP2Score = p2ParaScore.num
                 
                 # clean up in case there was a desync
-                keyboard.release('a')
                 desyncCounter = 0
-                desynced = False
-                
                 time.sleep(1)
+                
                 pressKey('a')   # skip win quote
                 
-            # monitor player positions to detect a desync
+            # monitor player positions, health, and meter to detect a desync
+            # default threshold for a desync is 3 seconds with no change
             getParameter(p1ParaX, programHandle, baseAddress)
             getParameter(p1ParaY, programHandle, baseAddress)
+            getParameter(p1ParaHealth, programHandle, baseAddress)
+            getParameter(p1ParaMeter, programHandle, baseAddress)
             getParameter(p2ParaX, programHandle, baseAddress)
             getParameter(p2ParaY, programHandle, baseAddress)
-            if oldP1X == p1ParaX.num and oldP1Y == p1ParaY.num and oldP2X == p2ParaX.num and oldP2Y == p2ParaY.num and not desynced:
+            getParameter(p2ParaHealth, programHandle, baseAddress)
+            getParameter(p2ParaMeter, programHandle, baseAddress)
+            if (oldP1X != p1ParaX.num or oldP2X != p2ParaX.num or
+                oldP1Y != p1ParaY.num or oldP2Y != p2ParaY.num or
+                oldP1Health != p1ParaHealth.num or oldP2Health != p2ParaHealth.num or
+                oldP1Meter != p1ParaMeter.num or oldP2Meter != p2ParaMeter.num):
+                desyncCounter = 0    
+            else:
                 desyncCounter += 1
                 if desyncCounter == DESYNC_THRESHOLD:
-                    print("Desync Detected")
-                    desynced = True
-                    focusApp(meltyPid)
-                    keyboard.press('a')
-            else:
-                desyncCounter = 0
+                    if (p1ParaHealth.num > p2ParaHealth.num and p1ParaScore == 1) or (p2ParaHealth.num > p1ParaHealth.num and p2ParaScore == 1):
+                        pressKey('s')       # pause
+                        pressKey('down')
+                        pressKey('down')
+                        pressKey('down')
+                        pressKey('down')
+                        pressKey('down')
+                        pressKey('a')       # return to replay selection
+                        pressKey('down')
+                        pressKey('a')       # confirm
+                    else:
+                        pressKey('s')       # pause
+                        pressKey('down')
+                        pressKey('down')
+                        pressKey('down')
+                        pressKey('down')
+                        pressKey('a')       # next round
+                
             oldP1X = p1ParaX.num
             oldP1Y = p1ParaY.num
+            oldP1Health = p1ParaHealth.num
+            oldP1Meter = p1ParaMeter.num
             oldP2X = p2ParaX.num
             oldP2Y = p2ParaY.num
+            oldP2Health = p2ParaHealth.num
+            oldP2Meter = p2ParaMeter.num
             
             time.sleep(0.1)
             
         # exit a finished replay
-        pressKey('a')   # skip game end quote
-        pressKey('down')# highlight Replay Selection
-        pressKey('a')   # select Replay Selection
+        if not desynced:
+            pressKey('a')   # skip game end quote
+            pressKey('down')# highlight Replay Selection
+            pressKey('a')   # select Replay Selection
         time.sleep(1)
+        
+        if getPid("MBAA.exe") == 0:
+                break
+
+    wrapup()
 
 if __name__ == '__main__':
     main()
-   
-
-    
-# USING CHEAT ENGINE TO FIND AN ADDRESS THAT
-# CAN TELL ME EITHER HOW MANY ROUNDS ARE IN A REPLAY
-# OR IF I AM IN THE LAST ROUND OR NOT
