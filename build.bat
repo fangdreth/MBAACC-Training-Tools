@@ -1,0 +1,1 @@
+python -m PyInstaller -F --icon=icon.ico .\RepReplay.py
