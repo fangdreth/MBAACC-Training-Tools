@@ -38,10 +38,8 @@ class MODULEENTRY32(ctypes.Structure):
     ]
 
 # Constants.  Consider getting these dynamically in the future
-CCCASTER_PATH = "C:\\Users\\willf\\WH\\MBAACC - Community Edition\\MBAACC"
 CCCASTER_PROC = "cccaster*"
 MELTY_PROC = "MBAA"
-REPLAY_PATH = "C:\\Users\\willf\\WH\\Repos\\MBAACC Training Tools\\MBAACC-Training-Tools\\Reps"
 
 # dictionary of every application (name, pid)
 def getPidDict():
@@ -107,22 +105,24 @@ def main():
         print("Move this executable into the same directory as CCCaster before launching it")
         wrapup()
     
-    # either use the folder provided as a command line argument or launch into interactive mode
-    if len(sys.argv) == 2:
-        replayPath = sys.argv[1]
-    elif len(sys.argv) == 1:
-        print("Click and drag your folder of replays onto this window then press Enter")
-        replayPath = input("==> ")
+    # ask for a folder
+    print("Click and drag your folder of replays onto this window then press Enter")
+    replayPath = input("==> ").strip("\"")
+    print(replayPath)
     if not os.path.exists(replayPath):
-        print("Unable to load give replay folder")
+        print("Unable to load given replay folder")
         wrapup()
 
-    # Copy given replays to CCCCaster location and back up old replays
+    # Copy given replays to CCCCaster location relpay folder in a new folder called $
     if not os.path.exists("ReplayVS"):
         os.makedirs("ReplayVS")
     if os.path.exists("ReplayVS\\$"):
         shutil.rmtree("ReplayVS\\$")
-    shutil.copytree(replayPath , "ReplayVS\\$")
+    try:
+        shutil.copytree(replayPath , "ReplayVS\\$")
+        input("Replays Copied")
+    except:
+        input("Failed to copy replays")
     replayTotal = len(os.listdir("ReplayVS\\$"))
 
     
