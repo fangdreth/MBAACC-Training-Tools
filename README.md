@@ -4,7 +4,7 @@ This is a tool which offers the ability to create a playlist of replays and auto
 ## Step 1: Setup
 Either download the source and double-click on build.bat, or get the executable directly from the Releases page [Add link here].  If you build it yourself, the executable will be created in the same directory under a folder called "dist".  However you got it, take the executable and put it in the same directory as your copy of MBAA.exe.
 
-## Step 2: Prepare you replay files
+## Step 2: Prepare your replay files
 Create a folder anywhere on your computer where you will put copies of the replays you want to playback.  Melty Blood replay files are kept in a folder called "ReplayVS" in the same directory as the game itself.  Find the replays you want to batch record and select them.  Sorting by date, using shift-click for many files, and control-click for multiple individual files might help you grab only the ones you want.  Copy and paste those replay files into the folder you created at the beginning of this step.
 
 ## Step 3: Starting the Batch Replay Tool
