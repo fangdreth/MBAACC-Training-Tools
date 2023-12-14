@@ -1,6 +1,7 @@
 from ctypes import windll, wintypes, byref
 from struct import unpack
 from pywinauto import Application
+from datetime import datetime
 import os
 import time
 import ctypes
@@ -12,7 +13,12 @@ import warnings
 import signal
 import sys
 
-DEBUG = True
+CCCASTER_PROC = "cccaster*"
+MELTY_PROC = "MBAA"
+
+meltyPid_g = 0
+potatoFlag_g = False
+debugLogger_g = None
 
 wintypes = ctypes.wintypes
 windll = ctypes.windll
@@ -24,6 +30,31 @@ Module32Next = windll.kernel32.Module32Next
 Module32First = windll.kernel32.Module32First
 CreateToolhelp32Snapshot = windll.kernel32.CreateToolhelp32Snapshot
 sizeof = ctypes.sizeof
+
+class VLogger:
+    def __init__(self, debugLevel):
+        self.debugTabs = 0
+        self.debugLevel = debugLevel
+        self.fileHandle = None
+    
+    def vprint(self, s, hold=False):
+        if self.debugLevel > 0:
+            if self.fileHandle == None:
+                self.fileHandle = open(datetime.now().strftime("RepReplay_%Y_%m_%d__%H_%M_%S.log"), "a")
+            self.fileHandle.write("  "*self.debugTabs + s + "\n")
+        if hold:
+            input(s)
+        else:
+            print(s)
+    
+    def vtrace(self, methodName, mode=""):
+        if self.debugLevel == 2:
+            if mode == "enter":
+                self.vprint(methodName)
+                self.debugTabs += 1
+            else:
+                self.debugTabs -= 1
+                self.vprint(methodName)
 
 class MODULEENTRY32(ctypes.Structure):
     _fields_ = [
@@ -39,51 +70,72 @@ class MODULEENTRY32(ctypes.Structure):
         ("szExePath",          ctypes.c_byte * 260),
     ]
 
-# Constants.  Consider getting these dynamically in the future
-CCCASTER_PROC = "cccaster*"
-MELTY_PROC = "MBAA"
-
 # dictionary of every application (name, pid)
 def getPidDict():
+    debugLogger_g.vtrace("getPidDict", "enter")
+    
     pidDict = {
         p.info["name"]: p.info["pid"]
         for p in psutil.process_iter(attrs=["name", "pid"])
     }
+    
+    debugLogger_g.vtrace("getPidDict")
+    
     return pidDict
     
 # return the pid of an application Ex. "MBAA.exe", 
 def getPid(appNameStart, appNameEnd=""):
+    debugLogger_g.vtrace("getPid", "enter")
+    
+    returnVal = 0
     pidDict = getPidDict()
     for key, value in pidDict.items():
         if key.startswith(appNameStart) and key.endswith(appNameEnd):
-            return value
-    return 0
+            returnVal = value
+            
+    debugLogger_g.vtrace("getPid")
+            
+    return returnVal
     
 def focusApp(pid):
+    debugLogger_g.vtrace("focusApp", "enter")
+
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             app = Application().connect(process=pid)
             app.top_window().set_focus()
     except:
-        pass
+        wrapup()
+        
+    debugLogger_g.vtrace("focusApp")
     
 # melty doesn't like .send, so gotta do it manually like this
 def pressKey(key):
-    meltyPid = getPid("MBAA.exe")
-    if meltyPid == 0:
-        wrapup()
-    focusApp(meltyPid)
+    debugLogger_g.vtrace("pressKey", "enter")
+
+    focusApp(meltyPid_g)
+    
+    debugLogger_g.vprint("Sending " + key)
+    
     keyboard.press(key)
     time.sleep(0.1)
     keyboard.release(key)
-    time.sleep(0.1)
+    wait(0.1)
+    
+    debugLogger_g.vtrace("pressKey")
     
 def getParameter(obj, programHandle, baseAddress):
+    debugLogger_g.vtrace("getParameter", "enter")
+    
     ReadMem(programHandle, obj.address + baseAddress, obj.b_dat, len(obj.b_dat), None)
     obj.num = unpack('l', obj.b_dat.raw)[0]
+    
+    debugLogger_g.vtrace("getParameter")
 
 def wrapup():
+    debugLogger_g.vtrace("wrapup", "enter")
+        
     try:
         cccasterPid = getPid("cccaster", ".exe")
         os.kill(cccasterPid, signal.SIGTERM)
@@ -91,19 +143,15 @@ def wrapup():
         pass
     if os.path.exists("ReplayVS\\$"):
         shutil.rmtree("ReplayVS\\$")
-    vprint("Press any key to close...", True)
+    debugLogger_g.vprint("Press any key to close...", True)
+    
+    debugLogger_g.vtrace("wrapup")
+    
     sys.exit()
     
-def vprint(s, hold=False):
-    if DEBUG:
-        # I know this is inefficient
-        f = open("RepRelpay.log", "a")
-        f.write(s + "\n")
-    if hold:
-        input(s)
-    else:
-        print(s)
-        
+def wait(t):
+    time.sleep(t + (1 if potatoFlag_g else 0))
+    
 class Parameter:
     def __init__(self, byteLength, address):
         self.address = address
@@ -118,21 +166,43 @@ class PlayerStruct:
         self.oldHealth = 0
         self.oldMeter = 0
         self.oldScore = 0
-         
+    
 def main():
-
+    global meltyPid_g
+    global potatoFlag_g
+    global debugLogger_g
+    
+    debugLogger_g = VLogger(0)
+    
+    debugLogger_g.vtrace("main", "enter")
+    
     # ensure cccaster is in the same directory
     if len([name for name in os.listdir() if name.startswith("cccaster") and name.endswith(".exe")]) == 0:
-        vprint("Move this executable into the same directory as CCCaster before launching it")
-        wrapup()
+        debugLogger_g.vprint("Move this executable into the same directory as CCCaster before launching it")
+        #wrapup()
     
     # ask for a folder
-    vprint("Click and drag your folder of replays onto this window then press Enter")
-    replayPath = input("==> ").strip("\"")
-    vprint(replayPath)
-    if not os.path.exists(replayPath):
-        vprint("Unable to load given replay folder")
-        wrapup()
+    replayPath = ""
+    while True:
+        os.system('cls')
+        debugLogger_g.vprint("Fang's Batch Replay Tool v1.2")
+        debugLogger_g.vprint("1+Enter  -  cycle debug level: " + ["Regular(recommended)", "Verbose"][debugLogger_g.debugLevel])
+        debugLogger_g.vprint("2+Enter  -  toggle potato mode for slow computers: " + ("On" if potatoFlag_g else "Off(recommended)"))
+        debugLogger_g.vprint("When ready to begin, drag your folder of replays onto this window then press Enter")
+        replayPath = input("==> ").strip("\"")
+        
+        if replayPath == "1":
+            debugLogger_g.debugLevel = (debugLogger_g.debugLevel + 1) % 2
+            continue
+        if replayPath == "2":
+            potatoFlag_g = not potatoFlag_g
+            continue
+        
+        if not os.path.exists(replayPath):
+            debugLogger_g.vprint("Unable to load given replay folder")
+        else:
+            debugLogger_g.vprint("\nFolder found.  MBAA is going to open after you press Enter again.\nAfter it opens come back to this console.", True)
+            break
 
     # Copy given replays to CCCCaster location relpay folder in a new folder called $
     if not os.path.exists("ReplayVS"):
@@ -141,9 +211,9 @@ def main():
         shutil.rmtree("ReplayVS\\$")
     try:
         shutil.copytree(replayPath , "ReplayVS\\$")
-        vprint("Replays Copied")
+        debugLogger_g.vprint("Replays Copied")
     except:
-        vprint("Failed to copy replays")
+        debugLogger_g.vprint("Failed to copy replays")
         wrapup()
     replayTotal = len(os.listdir("ReplayVS\\$"))
 
@@ -153,40 +223,39 @@ def main():
 
     # wait for cccaster to open
     os.system('cls')
-    vprint("Please wait for for CCCaster to open...")
+    debugLogger_g.vprint("Please wait for for CCCaster to open...")
     cccasterPid = 0
     while cccasterPid == 0:
         cccasterPid = getPid("cccaster", ".exe")
-        time.sleep(0.1)
+        wait(0.1)
 
     # launch replay mode
-    time.sleep(0.5)
+    wait(0.5)
     keyboard.write('45',delay=1)
 
 
     # wait for replay mode to launch
     os.system('cls')
-    vprint("Please wait for MBAA to open...")
-    meltyPid = 0
-    while meltyPid == 0:
-        meltyPid = getPid("MBAA.exe")
-        time.sleep(0.1)
+    debugLogger_g.vprint("Please wait for MBAA to open...")
+    while meltyPid_g == 0:
+        meltyPid_g = getPid("MBAA.exe")
+        wait(0.1)
           
     # give the user a pep talk
-    time.sleep(2)
+    wait(2)
     os.system('cls')
-    vprint("Open your recording software of choice now")
-    vprint("")
-    vprint("Make sure Player 1 is not assigned to a controller in the F4 menu")
-    vprint("")
-    vprint("Make sure Melty is NOT in fullscreen")
-    vprint("")
-    vprint("To begin playback, press Enter now", True)
+    debugLogger_g.vprint("Open your recording software of choice now")
+    debugLogger_g.vprint("")
+    debugLogger_g.vprint("Make sure Player 1 is not assigned to a controller in the F4 menu")
+    debugLogger_g.vprint("")
+    debugLogger_g.vprint("Make sure Melty is NOT in fullscreen")
+    debugLogger_g.vprint("")
+    debugLogger_g.vprint("To begin playback, press Enter now", True)
     os.system('cls')
-    vprint("Playback has begun.  Please do wait for the replay to finish.")
+    debugLogger_g.vprint("Playback has begun.  Please do wait for the replay to finish.")
 
     # re-focus MBAA
-    focusApp(meltyPid)
+    focusApp(meltyPid_g)
 
     # change the controls
     pressKey('f4')
@@ -200,7 +269,7 @@ def main():
     pressKey('down')
     pressKey('down')
     pressKey('a')
-    pressKey('down')
+    pressKey('b')
     pressKey('down')
     pressKey('down')
     pressKey('down')
@@ -208,10 +277,10 @@ def main():
     pressKey('f4')
 
     # get MBAA handle from its pid
-    programHandle = OpenProcess(0x1F0FFF, False, meltyPid)
+    programHandle = OpenProcess(0x1F0FFF, False, meltyPid_g)
 
     # snapshot MBAA
-    snapshot = CreateToolhelp32Snapshot(0x00000008, meltyPid)
+    snapshot = CreateToolhelp32Snapshot(0x00000008, meltyPid_g)
 
     # get the module
     lpme = MODULEENTRY32()
@@ -219,7 +288,7 @@ def main():
     Module32First(snapshot, byref(lpme))
 
     # probably not necessary, but won't hurt to leave
-    while meltyPid != lpme.th32ProcessID:
+    while meltyPid_g != lpme.th32ProcessID:
         Module32Next(snapshot, byref(lpme))
 
     # get the base address of MBAA in memory
@@ -244,16 +313,16 @@ def main():
     DESYNC_THRESHOLD = 30
 
     # navigate the replay menu
-    vprint("Total replays: " + str(replayTotal))
+    debugLogger_g.vprint("Total replays: " + str(replayTotal))
     for currentRep in range(replayTotal):
         pressKey('a')   # select $ folder
         pressKey('down')# get off the "go up" folder
         for i in range(currentRep):
             pressKey('down')    # go to next recording
         pressKey('a')   # select recording
-        time.sleep(1)
+        wait(1)
         pressKey('a')   # skip vs screen
-        time.sleep(0.5)
+        wait(0.5)
         pressKey('a')   # skip intro quote
 
         # initialize tracking variables.  these are used for detecting desyncs
@@ -277,16 +346,16 @@ def main():
             
             # detect a round ending
             if P1.oldScore != p1ParaScore.num or P2.oldScore != p2ParaScore.num:
-                vprint("Round end detected P1-" + str(p1ParaScore.num) + " P2-" + str(p2ParaScore.num))
+                debugLogger_g.vprint("Round end detected P1-" + str(p1ParaScore.num) + " P2-" + str(p2ParaScore.num))
                 
                 P1.oldScore = p1ParaScore.num
                 P2.oldScore = p2ParaScore.num
                 
                 desyncCounter = 0
                 
-                time.sleep(1)
+                wait(1)
                 
-                pressKey('a')   # skip win quote
+                pressKey('b')   # skip win quote
                 
             # monitor player positions, health, and meter to detect a desync
             # default threshold for a desync is 3 seconds with no change
@@ -302,11 +371,13 @@ def main():
                 P1.oldY != p1ParaY.num or P2.oldY != p2ParaY.num or
                 P1.oldHealth != p1ParaHealth.num or P2.oldHealth != p2ParaHealth.num or
                 P1.oldMeter != p1ParaMeter.num or P2.oldMeter != p2ParaMeter.num):
+                
                 desyncCounter = 0    
             else:
+            
                 desyncCounter += 1
                 if desyncCounter == DESYNC_THRESHOLD:
-                    vprint("Desync Detected")
+                    debugLogger_g.vprint("Desync Detected")
                     if (p1ParaHealth.num > p2ParaHealth.num and p1ParaScore == 1) or (p2ParaHealth.num > p1ParaHealth.num and p2ParaScore == 1):
                         pressKey('s')       # pause
                         pressKey('down')
@@ -334,14 +405,17 @@ def main():
             P2.oldHealth = p2ParaHealth.num
             P2.oldMeter = p2ParaMeter.num
             
-            time.sleep(0.1)
+            wait(0.1)
             
         # exit a finished replay
-        vprint("Replay " + str(currentRep) + " finished")
-        pressKey('a')   # skip game end quote
+        debugLogger_g.vprint("Replay " + str(currentRep) + " finished")
+        pressKey('b')   # skip game end quote
+        wait(1)
+        pressKey('b')   # skip closeup
+        wait(1)
         pressKey('down')# highlight Replay Selection
         pressKey('a')   # select Replay Selection
-        time.sleep(1)
+        wait(1)
         
         if getPid("MBAA.exe") == 0:
             input("MBAA closed")
