@@ -2,5 +2,5 @@ build
 dist
 Reps
 *.spec
-*.ps1
-*.log
+LaunchFrameStep.ps1
+RepReplay.log

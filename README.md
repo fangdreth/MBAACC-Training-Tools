@@ -1,3 +1,5 @@
+![alt text](https://github.com/WillHildreth/MBAACC-Training-Tools/blob/main/icon_raw.png?raw=true)
+
 # Batch Replay Tool
 This is a tool which offers the ability to create a playlist of replays and automatically play them one after another without any user input required.  It has the ability to detect desyncs and can skip them on its own.  Please please please let me know if you have bugs or it does not work for you.  My discord handle is "Fang\_\_\_"
 
@@ -16,4 +18,3 @@ Download [OBS](https://obsproject.com/).  Open OBS and create a new Scene.  In t
 ## Step 5: Start the replay
 Go back to the command window from the Replay Tool.  Press enter on it and step away.  You might be able to use your computer for other things while the replays are running, but you run the risk of control from the program getting desynced.
 MBAA will close on its own when the replay batch is finished.  Try not to let OBS run for too long or you'll end up with very large video files.
-
