@@ -1,6 +1,6 @@
 build
 dist
-Reps
 *.spec
 LaunchFrameStep.ps1
 RepReplay.log
+System/_App.ini
