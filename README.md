@@ -50,3 +50,11 @@ If you can't hit 60 fps in a 20 year old PC game, yes.
 
 ### Why does it act so weirdly after some desyncs?
 Because of limitations of the script, it can't always perfectly know the circumstances of a desync, so it sends certain streams of inputs that can remedy multiple scenarios at the same time.
+
+### It looks like setting controls in f4 isn't working correctly
+This can happen on some foreign keyboard types.  In that case, always use framestep mode and manually set the controls beforehand as follows:
+-up is '8'
+-down is '2'
+-A is '4'
+-B is '6'
+-Start is '5'
