@@ -18,7 +18,10 @@ MELTY_PROC = "MBAA"
 
 meltyPid_g = 0
 potatoFlag_g = False
+framestepFlag_g = False
+screenSizeEnum_g = 0  # 0=unchanged 1=640x480 2=1280x960 3=1920x1440
 debugLogger_g = None
+desyncThreshold_g = 60   # roughly 3 seconds
 
 wintypes = ctypes.wintypes
 windll = ctypes.windll
@@ -120,7 +123,7 @@ def pressKey(key):
     keyboard.press(key)
     time.sleep(0.1)
     keyboard.release(key)
-    wait(0.2)
+    wait(0.4)
     
     debugLogger_g.vtrace("pressKey")
     
@@ -168,9 +171,14 @@ class PlayerStruct:
         return "Score:"+str(self.oldScore)+" X:"+str(self.oldX)+" Y:"+str(self.oldY)+" Health:"+str(self.oldHealth)+" Meter:"+str(self.oldMeter)
     
 def main():
+
+    # I know some of these don't need to be global, but I like putting them like this anyway
     global meltyPid_g
     global potatoFlag_g
+    global framestepFlag_g
     global debugLogger_g
+    global screenSizeEnum_g
+    global desyncThreshold_g
     
     debugLogger_g = VLogger(0)
     
@@ -183,19 +191,98 @@ def main():
     
     # ask for a folder
     replayPath = ""
+    desyncLevel = 0
     while True:
         os.system('cls')
-        debugLogger_g.vprint("Fang's Batch Replay Tool v1.2")
+        debugLogger_g.vprint("Fang's Batch Replay Tool v1.3")
         debugLogger_g.vprint("1+Enter  -  cycle debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
-        debugLogger_g.vprint("2+Enter  -  toggle potato mode for slow computers: " + ("On" if potatoFlag_g else "Off(recommended)"))
-        debugLogger_g.vprint("When ready to begin, drag your folder of replays onto this window then press Enter")
+        debugLogger_g.vprint("2+Enter  -  cycle desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
+        debugLogger_g.vprint("3+Enter  -  toggle potato mode for slow computers: " + ("On" if potatoFlag_g else "Off(recommended)"))
+        debugLogger_g.vprint("4+Enter  -  enable framestep mode (skip the f4 menu): " + ("On" if framestepFlag_g else "Off(recommended)"))
+        debugLogger_g.vprint("5+Enter  -  open MBAA.exe to change the screen size. use 640x480, 1280x960, or 1920x1440 for framestep.")
+        debugLogger_g.vprint("6+Enter  -  pre-configure controls. useful for framestep mode")
+        debugLogger_g.vprint("\nWhen ready to begin, drag your folder of replays onto this window then press Enter")
         replayPath = input("==> ").strip("\"")
         
         if replayPath == "1":
             debugLogger_g.debugLevel = (debugLogger_g.debugLevel + 1) % 3
             continue
         if replayPath == "2":
+            desyncLevel = (desyncLevel + 1) % 4
+            if desyncLevel == 3:
+                desyncThreshold_g = 9999
+            else:
+                desyncThreshold_g = 60 + 30 * desyncLevel
+            continue
+        if replayPath == "3":
             potatoFlag_g = not potatoFlag_g
+            continue
+        if replayPath == "4":
+            framestepFlag_g = not framestepFlag_g
+            continue
+        if replayPath.lower() == "5":
+            os.system('cls')
+            os.startfile("MBAA.exe")
+            
+            # wait for MBAA to open
+            mbaaPid = 0
+            while mbaaPid == 0:
+                mbaaPid = getPid("MBAA.exe")
+                wait(0.1)
+                
+            # wait for MBAA to close
+            while mbaaPid != 0:
+                if getPid("MBAA.exe") == 0:
+                    break
+        
+            continue
+            
+        if replayPath.lower() == "6":
+            os.system('cls')
+            
+            # launch cccaster
+            os.startfile([name for name in os.listdir() if name.startswith("cccaster") and name.endswith(".exe")][0])
+
+            # wait for cccaster to open
+            os.system('cls')
+            debugLogger_g.vprint("Please wait for CCCaster to open...")
+            cccasterPid = 0
+            while cccasterPid == 0:
+                cccasterPid = getPid("cccaster", ".exe")
+                wait(0.1)
+
+            # launch replay mode
+            wait(0.5)
+            keyboard.write('45',delay=1)
+
+            # wait for replay mode to launch
+            os.system('cls')
+            debugLogger_g.vprint("Please wait for MBAA to open...")
+            while meltyPid_g == 0:
+                meltyPid_g = getPid("MBAA.exe")
+                wait(0.1)
+          
+            wait(5)
+            pressKey('f4')
+            pressKey('left')
+            pressKey('left')
+            pressKey('down')
+            pressKey('enter')
+            pressKey('8')
+            pressKey('2')
+            pressKey('esc')
+            pressKey('down')
+            pressKey('down')
+            pressKey('4')
+            pressKey('6')
+            pressKey('down')
+            pressKey('down')
+            pressKey('down')
+            pressKey('5')
+            pressKey('f4')
+            
+            subprocess.call("TASKKILL /F /PID " + str(cccasterPid), shell=True)
+        
             continue
         
         if not os.path.exists(replayPath):
@@ -229,10 +316,13 @@ def main():
         cccasterPid = getPid("cccaster", ".exe")
         wait(0.1)
 
+    # open in framestep mode if it was chosen
+    if framestepFlag_g:
+        keyboard.press('f8')
+
     # launch replay mode
     wait(0.5)
     keyboard.write('45',delay=1)
-
 
     # wait for replay mode to launch
     os.system('cls')
@@ -256,25 +346,28 @@ def main():
 
     # re-focus MBAA
     focusApp(meltyPid_g)
+    
+    keyboard.release('f8')
 
     # change the controls
-    pressKey('f4')
-    pressKey('left')
-    pressKey('left')
-    pressKey('down')
-    pressKey('enter')
-    pressKey('up')
-    pressKey('down')
-    pressKey('esc')
-    pressKey('down')
-    pressKey('down')
-    pressKey('a')
-    pressKey('b')
-    pressKey('down')
-    pressKey('down')
-    pressKey('down')
-    pressKey('s')
-    pressKey('f4')
+    if not framestepFlag_g:
+        pressKey('f4')
+        pressKey('left')
+        pressKey('left')
+        pressKey('down')
+        pressKey('enter')
+        pressKey('8')
+        pressKey('2')
+        pressKey('esc')
+        pressKey('down')
+        pressKey('down')
+        pressKey('4')
+        pressKey('6')
+        pressKey('down')
+        pressKey('down')
+        pressKey('down')
+        pressKey('5')
+        pressKey('f4')
 
     # get MBAA handle from its pid
     programHandle = OpenProcess(0x1F0FFF, False, meltyPid_g)
@@ -312,22 +405,19 @@ def main():
     
     paraRoundCount = Parameter(4, 0x14CFE4)
 
-    # 3 seconds because 30hz
-    DESYNC_THRESHOLD = 60
-
     # navigate the replay menu
     debugLogger_g.vprint("Total replays: " + str(replayTotal))
     for currentRep in range(replayTotal):
         wait(2)         # nice healthy wait for slower computers
-        pressKey('a')   # select $ folder
-        pressKey('down')# get off the "go up" folder
+        pressKey('4')   # select $ folder
+        pressKey('2')# get off the "go up" folder
         for i in range(currentRep):
-            pressKey('down')    # go to next recording
-        pressKey('a')   # select recording
+            pressKey('2')    # go to next recording
+        pressKey('4')   # select recording
         wait(1)
-        pressKey('a')   # skip vs screen
+        pressKey('4')   # skip vs screen
         wait(0.5)
-        pressKey('a')   # skip intro quote
+        pressKey('4')   # skip intro quote
 
         # initialize tracking variables.  these are used for detecting desyncs
         P1 = PlayerStruct()
@@ -338,8 +428,11 @@ def main():
         getParameter(p1ParaScore, programHandle, baseAddress)
         getParameter(p2ParaScore, programHandle, baseAddress)
         
+        # need to keep this for certain desync scenarios
+        leaveEarlyFlag = False
+        
         # the game starts
-        while p1ParaScore.num != 2 and p2ParaScore.num != 2:
+        while p1ParaScore.num != 2 and p2ParaScore.num != 2 and not leaveEarlyFlag:
             
             #Cap at 30hz
             time.sleep(0.033)
@@ -357,7 +450,7 @@ def main():
                 desyncCounter = 0
                 
                 wait(1)
-                pressKey('b')   # skip win quote
+                pressKey('6')   # skip win quote
                 
             # monitor player positions, health, and meter to detect a desync
             getParameter(p1ParaX, programHandle, baseAddress)
@@ -371,55 +464,62 @@ def main():
             if (P1.oldX == p1ParaX.num and P2.oldX == p2ParaX.num and P1.oldY == p1ParaY.num and P2.oldY == p2ParaY.num and P1.oldHealth == p1ParaHealth.num and P2.oldHealth == p2ParaHealth.num and P1.oldMeter == p1ParaMeter.num and P2.oldMeter == p2ParaMeter.num):
                 desyncCounter += 1
                 if desyncCounter % 10 == 0 and desyncCounter != 0:
-                    debugLogger_g.vprint("Desync Counter " + str(desyncCounter) + "/" + str(DESYNC_THRESHOLD))
+                    debugLogger_g.vprint("Desync Counter " + str(desyncCounter) + "/" + str(desyncThreshold_g))
                     debugLogger_g.vprint("P1-"+P1.toString()+" P2-"+P2.toString())
-                if desyncCounter == DESYNC_THRESHOLD:
+                if desyncCounter == desyncThreshold_g:
                     debugLogger_g.vprint("Desync or Disconnect Detected")
                     if getPid("MBAA.exe") == 0:
                         wrapup()
                     getParameter(paraRoundCount, programHandle, baseAddress)
                     if paraRoundCount.num == 1:
-                        pressKey('s')       # pause
-                        pressKey('down')
-                        pressKey('down')
-                        pressKey('down')
-                        pressKey('down')
-                        pressKey('a')       # next round
+                        pressKey('5')       # pause
+                        pressKey('2')
+                        pressKey('2')
+                        pressKey('2')
+                        pressKey('2')
+                        pressKey('4')       # next round
                     # final round or the health 
                     elif paraRoundCount.num == 3:
-                        pressKey('s')       # pause
-                        pressKey('down')
-                        pressKey('down')
-                        pressKey('down')
-                        pressKey('down')
-                        pressKey('down')
-                        pressKey('a')       # return to replay selection
+                        pressKey('5')       # pause
+                        pressKey('2')
+                        pressKey('2')
+                        pressKey('2')
+                        pressKey('2')
+                        pressKey('2')
+                        pressKey('4')       # return to replay selection
                         time.sleep(0.2)
-                        pressKey('down')
-                        pressKey('a')       # confirm
+                        pressKey('2')
+                        pressKey('4')       # confirm
                         break;
                     else:   # round count is 2.  this one is ugly
                         # this is sadly the only known way to cover a specific edge case
                         # where the game desyncs, but the player with less life wins anyway
-                        pressKey('s')
+                        pressKey('5')
                         for upIndex in range(7):
-                            pressKey('up')      # go to next recording
-                        pressKey('a')           # open command menu OR press continue
-                        pressKey('b')           # close command menu if open
-                        pressKey('down')
-                        pressKey('down')
-                        pressKey('down')        # go down to Next if menu is still open
-                        pressKey('a')           # press Next if menu is still open
-                        pressKey('s')           # if Next was not pressed, open Start again
-                        pressKey('up')
-                        pressKey('up')          # go down to Return
-                        pressKey('a')           # press Return
-                        time.sleep(0.2)
-                        pressKey('down')        # select confirm
-                        pressKey('a')           # confirm
+                            pressKey('8')      # go to next recording
+                        pressKey('4')           # open command menu OR press continue
+                        pressKey('6')           # close command menu if open
+                        pressKey('2')
+                        pressKey('2')
+                        pressKey('2')        # go down to Next if menu is still open
+                        pressKey('4')           # press Next if menu is still open
+                        
+                        # check if this was a 2-round match
+                        # i.e. see if we are back on the replay select menu or not
+                        time.sleep(1)
+                        getParameter(paraRoundCount, programHandle, baseAddress)
+                        if paraRoundCount.num == 2:
+                            debugLogger_g.vprint("Desync edge case detected B)")
+                            pressKey('5')           # if Next was not pressed, open Start again
+                            pressKey('8')
+                            pressKey('8')          # go down to Return
+                            pressKey('4')           # press Return
+                            time.sleep(0.2)
+                            pressKey('2')        # select confirm
+                            pressKey('4')           # confirm
+                            leaveEarlyFlag = True
                         
             else:
-                debugLogger_g.vprint("Desync Reset")
                 desyncCounter = 0
                 
             P1.oldX = p1ParaX.num
@@ -435,13 +535,13 @@ def main():
             
         # exit a finished replay
         debugLogger_g.vprint("Replay " + str(currentRep) + " finished")
-        if desyncCounter < DESYNC_THRESHOLD:
-            pressKey('b')   # skip game end quote
+        if desyncCounter < desyncThreshold_g:
+            pressKey('6')   # skip game end quote
             wait(1)
-            pressKey('b')   # skip closeup
+            pressKey('6')   # skip closeup
             wait(1)
-            pressKey('down')# highlight Replay Selection
-            pressKey('a')   # select Replay Selection
+            pressKey('2')# highlight Replay Selection
+            pressKey('4')   # select Replay Selection
             wait(1)
         else:
             wait(3)

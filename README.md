@@ -18,3 +18,35 @@ Download [OBS](https://obsproject.com/).  Open OBS and create a new Scene.  In t
 ## Step 5: Start the replay
 Go back to the command window from the Replay Tool.  Press enter on it and step away.  You might be able to use your computer for other things while the replays are running, but you run the risk of control from the program getting desynced.
 MBAA will close on its own when the replay batch is finished.  Try not to let OBS run for too long or you'll end up with very large video files.
+
+## FAQ
+
+### Framestep mode?
+Enabling framestep mode will allow you to toggle hitboxes on and off during playback.  Here's what you need for framestep to work correctly:
+- framestep.exe and framestep.dll in the same directory as CCCaster, MBAA, and RepReplay.exe.  You can find them one folder up from MBAACC in another folder called Tools.
+- Disable the frame limiter in CCCaster settings.  Open CCCaster, then go to Settings (7), Experimental Options (D), Disable Caster Frame Limiter (1), Yes (1).
+
+### Pre-configure controls for framestep?
+Framestep doesn't have the f4 menu for setting controls, so you have to pre-configure them before running.  Just pick the pre-configure option and let it do its thing.
+
+### Where are the hitboxes?
+If you are in framestep mode, after the playback begins, press H on your keyboard to turn them on.
+
+### The hitboxes are on, but they don't match the sprites
+MBAA's native resolution is 640x480, and hitboxes won't render correctly unless a multiple of that size is chosen.  640x480, 1280,960, and 1920x1440 are all sizes you can use.
+
+### How does changing screen size work?
+Screen size is controlled in MBAA.exe, not CCCaster.  The replay tool has an option in the menu to open MBAA.exe for you so you can change it to what you want, but after the recording is over, you will have to remember to go back on your own and change it to what you prefer.
+-Here's a tip.  In MBAA.exe, after you pick your screen size in the dropdown box, you can simply close the window instead of hitting "Ok" and opening up the whole game.
+
+### Should I bother with debug levels?
+Not really.  It won't make you a better melty player.
+
+### Which desync detection level should I pick?
+This changes the amount of time the script waits before deciding a match is desynced.  Unless you are recording a set with a lot of standing around doing nothing, you probably fine leaving this setting alone.
+
+### Do I need potato mode?
+If you can't hit 60 fps in a 20 year old PC game, yes.
+
+### Why does it act so weirdly after some desyncs?
+Because of limitations of the script, it can't always perfectly know the circumstances of a desync, so it sends certain streams of inputs that can remedy multiple scenarios at the same time.
