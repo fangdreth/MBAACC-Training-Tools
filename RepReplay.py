@@ -200,6 +200,7 @@ def main():
         debugLogger_g.vprint("3+Enter  -  toggle potato mode for slow computers: " + ("On" if potatoFlag_g else "Off(recommended)"))
         debugLogger_g.vprint("4+Enter  -  enable framestep mode (skip the f4 menu): " + ("On" if framestepFlag_g else "Off(recommended)"))
         debugLogger_g.vprint("5+Enter  -  open MBAA.exe to change the screen size. use 640x480, 1280x960, or 1920x1440 for framestep.")
+        debugLogger_g.vprint("            Tip: Select your screen size in the drop down, then CLOSE mbaa.exe instead of clicking \"Ok\"")
         debugLogger_g.vprint("6+Enter  -  pre-configure controls. useful for framestep mode")
         debugLogger_g.vprint("\nWhen ready to begin, drag your folder of replays onto this window then press Enter")
         replayPath = input("==> ").strip("\"")
