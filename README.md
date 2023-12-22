@@ -53,8 +53,8 @@ Because of limitations of the script, it can't always perfectly know the circums
 
 ### It looks like setting controls in f4 isn't working correctly
 This can happen on some foreign keyboard types.  In that case, always use framestep mode and manually set the controls beforehand as follows:
--up is '8'
--down is '2'
--A is '4'
--B is '6'
--Start is '5'
+- up is '8'
+- down is '2'
+- A is '4'
+- B is '6'
+- Start is '5'
