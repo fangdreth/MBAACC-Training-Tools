@@ -152,7 +152,9 @@ def wrapup():
     sys.exit()
     
 def wait(t):
-    time.sleep(t + (1 if potatoFlag_g else 0))
+    sleepTime = t + (1 if potatoFlag_g else 0)
+    debugLogger_g.vprint("Waiting for: " + str(sleepTime))
+    time.sleep(sleepTime)
     
 class Parameter:
     def __init__(self, byteLength, address):
@@ -195,10 +197,11 @@ def main():
     while True:
         os.system('cls')
         debugLogger_g.vprint("Fang's Batch Replay Tool v1.3")
-        debugLogger_g.vprint("1+Enter  -  cycle debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
-        debugLogger_g.vprint("2+Enter  -  cycle desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
-        debugLogger_g.vprint("3+Enter  -  toggle potato mode for slow computers: " + ("On" if potatoFlag_g else "Off(recommended)"))
-        debugLogger_g.vprint("4+Enter  -  enable framestep mode (skip the f4 menu): " + ("On" if framestepFlag_g else "Off(recommended)"))
+        debugLogger_g.vprint("1+Enter  -  debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
+        debugLogger_g.vprint("2+Enter  -  desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
+        debugLogger_g.vprint("3+Enter  -  potato mode for slow computers: " + ("On" if potatoFlag_g else "Off(recommended)"))
+        debugLogger_g.vprint("4+Enter  -  framestep mode (skip the f4 menu): " + ("On" if framestepFlag_g else "Off(recommended)"))
+        debugLogger_g.vprint("--")
         debugLogger_g.vprint("5+Enter  -  open MBAA.exe to change the screen size. use 640x480, 1280x960, or 1920x1440 for framestep.")
         debugLogger_g.vprint("            Tip: Select your screen size in the drop down, then CLOSE mbaa.exe instead of clicking \"Ok\"")
         debugLogger_g.vprint("6+Enter  -  pre-configure controls. useful for framestep mode")
@@ -409,6 +412,7 @@ def main():
     # navigate the replay menu
     debugLogger_g.vprint("Total replays: " + str(replayTotal))
     for currentRep in range(replayTotal):
+        debugLogger_g.vprint("Starting Replay: " + str(currentRep+1))
         wait(2)         # nice healthy wait for slower computers
         pressKey('4')   # select $ folder
         pressKey('2')# get off the "go up" folder
@@ -543,13 +547,15 @@ def main():
             wait(1)
             pressKey('2')# highlight Replay Selection
             pressKey('4')   # select Replay Selection
-            wait(1)
+            wait(2)
         else:
-            wait(3)
+            wait(4)
         
-        if getPid("MBAA.exe") == 0:
-            input("MBAA closed")
-            break
+        # I am disabling this until I understand why
+        # it causes so much slowdown
+        #if getPid("MBAA.exe") == 0:
+        #    input("MBAA closed")
+        #    break
 
     wrapup()
 
