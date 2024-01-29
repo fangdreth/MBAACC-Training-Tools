@@ -547,7 +547,7 @@ def main():
             wait(1)
             pressKey('2')# highlight Replay Selection
             pressKey('4')   # select Replay Selection
-            wait(2)
+            wait(1.5)
         else:
             wait(4)
         
