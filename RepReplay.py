@@ -123,7 +123,7 @@ def pressKey(key):
     keyboard.press(key)
     time.sleep(0.1)
     keyboard.release(key)
-    wait(0.4)
+    wait(0.2)
     
     debugLogger_g.vtrace("pressKey")
     
@@ -413,8 +413,9 @@ def main():
     debugLogger_g.vprint("Total replays: " + str(replayTotal))
     for currentRep in range(replayTotal):
         debugLogger_g.vprint("Starting Replay: " + str(currentRep+1))
-        wait(2)         # nice healthy wait for slower computers
+        wait(1)         # nice healthy wait for slower computers
         pressKey('4')   # select $ folder
+        wait(0.2)
         pressKey('2')# get off the "go up" folder
         for i in range(currentRep):
             pressKey('2')    # go to next recording
