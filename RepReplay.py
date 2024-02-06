@@ -196,7 +196,7 @@ def main():
     desyncLevel = 0
     while True:
         os.system('cls')
-        debugLogger_g.vprint("Fang's Batch Replay Tool v1.3")
+        debugLogger_g.vprint("Fang's Batch Replay Tool v1.5")
         debugLogger_g.vprint("1+Enter  -  debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
         debugLogger_g.vprint("2+Enter  -  desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
         debugLogger_g.vprint("3+Enter  -  potato mode for slow computers: " + ("On" if potatoFlag_g else "Off(recommended)"))
