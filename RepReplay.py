@@ -201,7 +201,7 @@ def main():
         debugLogger_g.vprint("")
         debugLogger_g.vprint("1+Enter  -  replay sorting style: " + ["Oldest First(recommended)", "Alphabetical(vanilla*)"][sortStyle_g])
         if sortStyle_g == 1:
-            debugLogger_g.vprint("*White Len (W_LEN) and Hime (A_EARTH) are treated slightly differently because of the \"_\".  It's nothing major.")
+            debugLogger_g.vprint("*White Len (W_LEN), Hime (A_EARTH), and a few others are treated slightly differently because of the \"_\".  It's nothing major.")
         debugLogger_g.vprint("--")
         debugLogger_g.vprint("2+Enter  -  debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
         debugLogger_g.vprint("3+Enter  -  desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
