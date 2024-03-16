@@ -2,6 +2,7 @@ from ctypes import windll, wintypes, byref
 from struct import unpack
 from pywinauto import Application
 from datetime import datetime
+from pathlib import Path
 import os
 import time
 import ctypes
@@ -17,7 +18,7 @@ CCCASTER_PROC = "cccaster*"
 MELTY_PROC = "MBAA"
 
 meltyPid_g = 0
-potatoFlag_g = False
+sortStyle_g = 0 # 0=bydatedescending 1=alphabetical
 framestepFlag_g = False
 screenSizeEnum_g = 0  # 0=unchanged 1=640x480 2=1280x960 3=1920x1440
 debugLogger_g = None
@@ -151,8 +152,7 @@ def wrapup():
     
     sys.exit()
     
-def wait(t):
-    sleepTime = t + (1 if potatoFlag_g else 0)
+def wait(sleepTime):
     debugLogger_g.vprint("Waiting for: " + str(sleepTime))
     time.sleep(sleepTime)
     
@@ -176,7 +176,7 @@ def main():
 
     # I know some of these don't need to be global, but I like putting them like this anyway
     global meltyPid_g
-    global potatoFlag_g
+    global sortStyle_g
     global framestepFlag_g
     global debugLogger_g
     global screenSizeEnum_g
@@ -196,10 +196,15 @@ def main():
     desyncLevel = 0
     while True:
         os.system('cls')
-        debugLogger_g.vprint("Fang's Batch Replay Tool v1.5")
-        debugLogger_g.vprint("1+Enter  -  debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
-        debugLogger_g.vprint("2+Enter  -  desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
-        debugLogger_g.vprint("3+Enter  -  potato mode for slow computers: " + ("On" if potatoFlag_g else "Off(recommended)"))
+        debugLogger_g.vprint("Fang's Batch Replay Tool v1.6")
+        debugLogger_g.vprint("")
+        debugLogger_g.vprint("")
+        debugLogger_g.vprint("1+Enter  -  replay sorting style: " + ["Oldest First(recommended)", "Alphabetical(vanilla*)"][sortStyle_g])
+        if sortStyle_g == 1:
+            debugLogger_g.vprint("*White Len (W_LEN) and Hime (A_EARTH) are treated slightly differently because of the \"_\".  It's nothing major.")
+        debugLogger_g.vprint("--")
+        debugLogger_g.vprint("2+Enter  -  debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
+        debugLogger_g.vprint("3+Enter  -  desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
         debugLogger_g.vprint("4+Enter  -  framestep mode (skip the f4 menu): " + ("On" if framestepFlag_g else "Off(recommended)"))
         debugLogger_g.vprint("--")
         debugLogger_g.vprint("5+Enter  -  open MBAA.exe to change the screen size. use 640x480, 1280x960, or 1920x1440 for framestep.")
@@ -209,17 +214,17 @@ def main():
         replayPath = input("==> ").strip("\"")
         
         if replayPath == "1":
-            debugLogger_g.debugLevel = (debugLogger_g.debugLevel + 1) % 3
+            sortStyle_g = (sortStyle_g + 1) % 2
             continue
         if replayPath == "2":
+            debugLogger_g.debugLevel = (debugLogger_g.debugLevel + 1) % 3
+            continue
+        if replayPath == "3":
             desyncLevel = (desyncLevel + 1) % 4
             if desyncLevel == 3:
                 desyncThreshold_g = 9999
             else:
                 desyncThreshold_g = 60 + 30 * desyncLevel
-            continue
-        if replayPath == "3":
-            potatoFlag_g = not potatoFlag_g
             continue
         if replayPath == "4":
             framestepFlag_g = not framestepFlag_g
@@ -289,25 +294,27 @@ def main():
         
             continue
         
+        # if they didn't pick a menu option, see if it's a valid path or not
         if not os.path.exists(replayPath):
             debugLogger_g.vprint("Unable to load given replay folder")
-        else:
-            debugLogger_g.vprint("\nFolder found.  MBAA is going to open after you press Enter again.\nAfter it opens come back to this console.", True)
+        else: # path found
+            # get a list of files that will be copied one-by-one to the replay folder
+            if sortStyle_g == 0:    #by date
+                replayFiles = sorted(Path(replayPath).iterdir(), key=os.path.getmtime)
+            elif sortStyle_g == 1:  # alphabetical
+                replayFiles = sorted(Path(replayPath).iterdir())
+                
+            # find out how many replays there are
+            replayTotal = len(replayFiles)
+            debugLogger_g.vprint("\n" + str(replayTotal) + " replays detected")
+            
+            # add the replay folder if it doesn't exist already
+            if not os.path.exists("ReplayVS"):
+                debugLogger_g.vprint("Creating ReplayVS folder")
+                os.makedirs("ReplayVS")
+        
+            debugLogger_g.vprint("\nMBAA is going to open after you press Enter again.\nAfter it opens come back to this console.", True)
             break
-
-    # Copy given replays to CCCCaster location relpay folder in a new folder called $
-    if not os.path.exists("ReplayVS"):
-        os.makedirs("ReplayVS")
-    if os.path.exists("ReplayVS\\$"):
-        shutil.rmtree("ReplayVS\\$")
-    try:
-        shutil.copytree(replayPath , "ReplayVS\\$")
-        debugLogger_g.vprint("Replays Copied")
-    except:
-        debugLogger_g.vprint("Failed to copy replays")
-        wrapup()
-    replayTotal = len(os.listdir("ReplayVS\\$"))
-
 
     # launch cccaster
     os.startfile([name for name in os.listdir() if name.startswith("cccaster") and name.endswith(".exe")][0])
@@ -413,12 +420,29 @@ def main():
     debugLogger_g.vprint("Total replays: " + str(replayTotal))
     for currentRep in range(replayTotal):
         debugLogger_g.vprint("Starting Replay: " + str(currentRep+1))
+        
+        # Delete the old replay...
+        try:
+            debugLogger_g.vprint("Deleting old replay")
+            shutil.rmtree("ReplayVS\\$")
+        except:
+            pass
+        
+        # ...and copy the next one
+        try:
+            debugLogger_g.vprint("Copying replay #" + str(currentRep+1) + ": " + str(replayFiles[currentRep]))
+            os.makedirs("ReplayVS\\$")
+            shutil.copy(replayFiles[currentRep] , "ReplayVS\\$")
+            debugLogger_g.vprint("Replay Copied")
+        except:
+            debugLogger_g.vprint("Failed to copy replay")
+            wrapup()
+        
+        # Select the current replay
         wait(1)         # nice healthy wait for slower computers
         pressKey('4')   # select $ folder
         wait(0.2)
         pressKey('2')# get off the "go up" folder
-        for i in range(currentRep):
-            pressKey('2')    # go to next recording
         pressKey('4')   # select recording
         wait(1)
         pressKey('4')   # skip vs screen
