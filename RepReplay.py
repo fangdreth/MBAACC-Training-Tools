@@ -1,5 +1,6 @@
 from ctypes import windll, wintypes, byref
 from struct import unpack
+from pywinauto import Application
 from datetime import datetime
 from pathlib import Path
 import os
