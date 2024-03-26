@@ -45,9 +45,6 @@ Not really.  It won't make you a better melty player.
 ### Which desync detection level should I pick?
 This changes the amount of time the script waits before deciding a match is desynced.  Unless you are recording a set with a lot of standing around doing nothing, you are probably fine leaving this setting alone.
 
-### Do I need potato mode?
-If you can't hit 60 fps in a 20 year old PC game, yes.
-
 ### Why does it act so weirdly after some desyncs?
 Because of limitations of the script, it can't always perfectly know the circumstances of a desync, so it sends certain streams of inputs that can fix several different scenarios through clever menuing.
 
