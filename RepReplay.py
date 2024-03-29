@@ -196,7 +196,7 @@ def main():
     desyncLevel = 0
     while True:
         os.system('cls')
-        debugLogger_g.vprint("Fang's Batch Replay Tool v1.6")
+        debugLogger_g.vprint("Fang's Batch Replay Tool v1.7")
         debugLogger_g.vprint("")
         debugLogger_g.vprint("")
         debugLogger_g.vprint("1+Enter  -  replay sorting style: " + ["Oldest First(recommended)", "Alphabetical(vanilla*)"][sortStyle_g])
