@@ -189,7 +189,7 @@ def main():
     # ensure cccaster is in the same directory
     if len([name for name in os.listdir() if name.startswith("cccaster") and name.endswith(".exe")]) == 0:
         debugLogger_g.vprint("Move this executable into the same directory as CCCaster before launching it")
-        #wrapup()
+        wrapup()
     
     # ask for a folder
     replayPath = ""
