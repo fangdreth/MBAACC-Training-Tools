@@ -13,7 +13,14 @@ Create a folder anywhere on you computer, then copy the replays you want to reco
 Double-click RepReplay.exe.  You will see a terminal pop up where you can configure how you want to run the tool.  See the section below for more details.  Once you are satisfied, click and drag the folder you created in the last step onto the terminal and press enter.  CCCaster and then MBAA will open.  Click back on the original terminal for instructions on how to begin.
 
 # Building
-Clone the repository from `https://github.com/fangdreth/MBAACC-Training-Tools`.  All you have to do is double-click build.bat or run it from the terminal.  RepReplay.exe will be created in a folder called "dist".
+Install the modules you need
+- `pip install PyInstaller`
+- `pip install pywinauto`
+- `pip install psutil`
+- Clone the repository from `https://github.com/fangdreth/MBAACC-Training-Tools`.
+- Run `build.bat`
+
+RepReplay.exe will be created in a folder called "dist".
 
 
 # OBS Integration

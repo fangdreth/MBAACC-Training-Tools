@@ -20,9 +20,10 @@ import webbrowser
 
 CCCASTER_PROC = "cccaster*"
 MELTY_PROC = "MBAA"
-VERSION = "v1.7"
+VERSION = "v1.8"
 GITHUB_LATEST = "https://api.github.com/repos/fangdreth/MBAACC-Training-Tools/releases/latest"
 GITHUB_RELEASE = "https://github.com/fangdreth/MBAACC-Training-Tools/releases/tag/"
+GITHUB_README = "https://github.com/fangdreth/MBAACC-Training-Tools/blob/main/README.md"
 
 meltyPid_g = 0
 debugLogger_g = None
@@ -311,6 +312,7 @@ def main():
             debugLogger_g.log("")
         debugLogger_g.log("4+Enter  -  debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
         debugLogger_g.log("5+Enter  -  desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
+        debugLogger_g.log("6+Enter  -  open the readme")
         debugLogger_g.log("--")
         debugLogger_g.log("\nWhen ready to begin, drag your folder of replays onto this window then press Enter")
         replayPath = input("==> ").strip("\"")
@@ -440,6 +442,10 @@ def main():
                 desyncThreshold = 9999
             else:
                 desyncThreshold = 60 + 30 * desyncLevel
+            continue
+        
+        if replayPath == "6":
+            webbrowser.open(GITHUB_README, new=0, autoraise=True)
             continue
         
         # if they didn't pick a menu option, see if it's a valid path or not
