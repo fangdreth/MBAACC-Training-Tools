@@ -3,6 +3,7 @@ from struct import unpack
 from pywinauto import Application
 from datetime import datetime
 from pathlib import Path
+from getpass import getpass
 import os
 import time
 import ctypes
@@ -13,16 +14,18 @@ import keyboard
 import warnings
 import signal
 import sys
+import obsws_python
+import requests
+import webbrowser
 
 CCCASTER_PROC = "cccaster*"
 MELTY_PROC = "MBAA"
+VERSION = "v1.7"
+GITHUB_LATEST = "https://api.github.com/repos/fangdreth/MBAACC-Training-Tools/releases/latest"
+GITHUB_RELEASE = "https://github.com/fangdreth/MBAACC-Training-Tools/releases/tag/"
 
 meltyPid_g = 0
-sortStyle_g = 0 # 0=bydatedescending 1=alphabetical
-framestepFlag_g = False
-screenSizeEnum_g = 0  # 0=unchanged 1=640x480 2=1280x960 3=1920x1440
 debugLogger_g = None
-desyncThreshold_g = 60   # roughly 3 seconds
 
 wintypes = ctypes.wintypes
 windll = ctypes.windll
@@ -38,27 +41,29 @@ sizeof = ctypes.sizeof
 class VLogger:
     def __init__(self, debugLevel):
         self.debugTabs = 0
-        self.debugLevel = debugLevel
+        self.debugLevel = debugLevel    #0=regular 1=verbose 2=trace
         self.fileHandle = None
     
-    def vprint(self, s, hold=False):
+    def log(self, s):
         if self.debugLevel > 0:
             if self.fileHandle == None:
                 self.fileHandle = open(datetime.now().strftime("RepReplay_%Y_%m_%d__%H_%M_%S.log"), "a")
             self.fileHandle.write("  "*self.debugTabs + s + "\n")
-        if hold:
-            input(s)
-        else:
-            print(s)
+        print(s)
+            
+    def vlog(self, s):
+        if self.debugLevel > 0:
+            self.log(s)
+        
     
-    def vtrace(self, methodName, mode=""):
+    def trace(self, methodName, mode=""):
         if self.debugLevel == 2:
             if mode == "enter":
-                self.vprint(methodName)
+                self.log(methodName)
                 self.debugTabs += 1
             else:
                 self.debugTabs -= 1
-                self.vprint(methodName)
+                self.log(methodName)
 
 class MODULEENTRY32(ctypes.Structure):
     _fields_ = [
@@ -76,20 +81,20 @@ class MODULEENTRY32(ctypes.Structure):
 
 # dictionary of every application (name, pid)
 def getPidDict():
-    debugLogger_g.vtrace("getPidDict", "enter")
+    debugLogger_g.trace("getPidDict", "enter")
     
     pidDict = {
         p.info["name"]: p.info["pid"]
         for p in psutil.process_iter(attrs=["name", "pid"])
     }
     
-    debugLogger_g.vtrace("getPidDict")
+    debugLogger_g.trace("getPidDict")
     
     return pidDict
     
 # return the pid of an application Ex. "MBAA.exe", 
 def getPid(appNameStart, appNameEnd=""):
-    debugLogger_g.vtrace("getPid", "enter")
+    debugLogger_g.trace("getPid", "enter")
     
     returnVal = 0
     pidDict = getPidDict()
@@ -97,12 +102,12 @@ def getPid(appNameStart, appNameEnd=""):
         if key.startswith(appNameStart) and key.endswith(appNameEnd):
             returnVal = value
             
-    debugLogger_g.vtrace("getPid")
+    debugLogger_g.trace("getPid")
             
     return returnVal
     
 def focusApp(pid):
-    debugLogger_g.vtrace("focusApp", "enter")
+    debugLogger_g.trace("focusApp", "enter")
 
     try:
         with warnings.catch_warnings():
@@ -112,13 +117,13 @@ def focusApp(pid):
     except:
         wrapup()
         
-    debugLogger_g.vtrace("focusApp")
+    debugLogger_g.trace("focusApp")
     
 # melty doesn't like .send, so gotta do it manually like this
 def pressKey(key):
-    debugLogger_g.vtrace("pressKey", "enter")
+    debugLogger_g.trace("pressKey", "enter")
 
-    debugLogger_g.vprint("Sending " + key)
+    debugLogger_g.vlog("Sending " + key)
 
     focusApp(meltyPid_g)
     keyboard.press(key)
@@ -126,18 +131,18 @@ def pressKey(key):
     keyboard.release(key)
     wait(0.2)
     
-    debugLogger_g.vtrace("pressKey")
+    debugLogger_g.trace("pressKey")
     
 def getParameter(obj, programHandle, baseAddress):
-    debugLogger_g.vtrace("getParameter", "enter")
+    debugLogger_g.trace("getParameter", "enter")
     
     ReadMem(programHandle, obj.address + baseAddress, obj.b_dat, len(obj.b_dat), None)
     obj.num = unpack('l', obj.b_dat.raw)[0]
     
-    debugLogger_g.vtrace("getParameter")
+    debugLogger_g.trace("getParameter")
 
 def wrapup():
-    debugLogger_g.vtrace("wrapup", "enter")
+    debugLogger_g.trace("wrapup", "enter")
         
     try:
         cccasterPid = getPid("cccaster", ".exe")
@@ -146,16 +151,94 @@ def wrapup():
         pass
     if os.path.exists("ReplayVS\\$"):
         shutil.rmtree("ReplayVS\\$")
-    debugLogger_g.vprint("Press any key to close...", True)
     
-    debugLogger_g.vtrace("wrapup")
+    debugLogger_g.trace("wrapup")
     
     sys.exit()
     
 def wait(sleepTime):
-    debugLogger_g.vprint("Waiting for: " + str(sleepTime))
+    debugLogger_g.vlog("Waiting for: " + str(sleepTime))
     time.sleep(sleepTime)
-    
+ 
+def checkForUpdate():
+    try:
+        response = requests.get(GITHUB_LATEST)
+        latestVersion = response.json()["name"]
+        if latestVersion != VERSION:
+            return (True, latestVersion)
+    except:
+        debugLogger_g.log("Unable to check for newer version")
+        input("Press Enter to continue...")
+        
+    return (False, "")
+ 
+class OBSController:
+    def __init__(self):
+        self.enabled = False
+        self.port = 4455
+        self.password = ""
+        self.connected = False
+        self.webSocket = None
+        self.recordingInProgress = False
+        
+    def connect(self):
+        debugLogger_g.trace("OBSController::connect", "enter")
+        
+        if not self.connected and self.enabled:
+            try:
+                self.webSocket = obsws_python.ReqClient(host='localhost', port=self.port, password=self.password)
+                self.connected = True
+                debugLogger_g.log("Connection successful")
+            except:
+                debugLogger_g.log("Unable to connect")
+                debugLogger_g.trace("OBSController::connect")
+                return 1
+                
+        debugLogger_g.trace("OBSController::connect")
+        return 0
+            
+    def start(self):
+        debugLogger_g.trace("OBSController::start", "enter")
+        if self.connected and self.enabled:
+            try:
+                self.webSocket.start_record()
+            except:
+                debugLogger_g.vlog("OBSControllerObj::start failed.  This may not be a problem")
+        debugLogger_g.trace("OBSController::start")
+        
+    def pause(self):
+        debugLogger_g.trace("OBSController::pause", "enter")
+        if self.connected and self.enabled:
+            try:
+                self.webSocket.pause_record()
+            except:
+                debugLogger_g.vlog("OBSControllerObj::pause failed.  This may not be a problem")
+        debugLogger_g.trace("OBSController::pause")
+        
+    def resume(self):
+        debugLogger_g.trace("OBSController::resume", "enter")
+        if self.connected and self.enabled:
+            if self.recordingInProgress:
+                try:
+                    self.webSocket.resume_record()
+                except:
+                    debugLogger_g.vlog("OBSControllerObj::resume failed.  This may not be a problem")
+            else:
+                self.start()
+                self.recordingInProgress = True
+        debugLogger_g.trace("OBSController::resume")
+        
+    def stop(self):
+        debugLogger_g.trace("OBSController::stop", "enter")
+        if self.connected and self.enabled:
+            try:
+                self.webSocket.stop_record()
+            except:
+                debugLogger_g.vlog("OBSControllerObj::stop failed.  This may not be a problem")
+            self.recordingInProgress = False
+        debugLogger_g.trace("OBSController::stop")
+            
+  
 class Parameter:
     def __init__(self, byteLength, address):
         self.address = address
@@ -176,60 +259,79 @@ def main():
 
     # I know some of these don't need to be global, but I like putting them like this anyway
     global meltyPid_g
-    global sortStyle_g
-    global framestepFlag_g
     global debugLogger_g
-    global screenSizeEnum_g
-    global desyncThreshold_g
     
     debugLogger_g = VLogger(0)
     
-    debugLogger_g.vtrace("main", "enter")
+    debugLogger_g.trace("main", "enter")
+    
+    newerVersionExists = checkForUpdate()
     
     # ensure cccaster is in the same directory
     if len([name for name in os.listdir() if name.startswith("cccaster") and name.endswith(".exe")]) == 0:
-        debugLogger_g.vprint("Move this executable into the same directory as CCCaster before launching it")
+        debugLogger_g.log("Move this executable into the same directory as CCCaster before launching it")
         wrapup()
     
     # ask for a folder
     replayPath = ""
     desyncLevel = 0
+    desyncThreshold = 60   # roughly 3 seconds
+    OBSControllerObj = OBSController()
+    sortStyle = 0 # 0=bydatedescending 1=alphabetical
+    framestepFlag = False
+    activeSubMenu = ""
     while True:
         os.system('cls')
-        debugLogger_g.vprint("Fang's Batch Replay Tool v1.7")
-        debugLogger_g.vprint("")
-        debugLogger_g.vprint("")
-        debugLogger_g.vprint("1+Enter  -  replay sorting style: " + ["Oldest First(recommended)", "Alphabetical(vanilla*)"][sortStyle_g])
-        if sortStyle_g == 1:
-            debugLogger_g.vprint("*White Len (W_LEN), Hime (A_EARTH), and a few others are treated slightly differently because of the \"_\".  It's nothing major.")
-        debugLogger_g.vprint("--")
-        debugLogger_g.vprint("2+Enter  -  debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
-        debugLogger_g.vprint("3+Enter  -  desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
-        debugLogger_g.vprint("4+Enter  -  framestep mode (skip the f4 menu): " + ("On" if framestepFlag_g else "Off(recommended)"))
-        debugLogger_g.vprint("--")
-        debugLogger_g.vprint("5+Enter  -  open MBAA.exe to change the screen size. use 640x480, 1280x960, or 1920x1440 for framestep.")
-        debugLogger_g.vprint("            Tip: Select your screen size in the drop down, then CLOSE mbaa.exe instead of clicking \"Ok\"")
-        debugLogger_g.vprint("6+Enter  -  pre-configure controls. useful for framestep mode")
-        debugLogger_g.vprint("\nWhen ready to begin, drag your folder of replays onto this window then press Enter")
+        debugLogger_g.log("Fang's Batch Replay Tool " + VERSION)
+        debugLogger_g.log("")
+        debugLogger_g.log("")
+        if newerVersionExists[0]:
+            debugLogger_g.log("0+Enter  -  Get the latest version (" + newerVersionExists[1] + ")")
+            debugLogger_g.log("")
+        debugLogger_g.log("1+Enter  -  replay sorting style: " + ["Oldest First(recommended)", "Alphabetical(vanilla*)"][sortStyle])
+        if sortStyle == 1:
+            debugLogger_g.log("            *White Len (W_LEN), Hime (A_EARTH), and a few others are treated slightly differently because of the \"_\".")
+        debugLogger_g.log("2+Enter  -  framestep mode...")
+        if activeSubMenu == "framestep":
+            debugLogger_g.log("                A+Enter  -  enabled: " + ("On" if framestepFlag else "Off(recommended)"))
+            debugLogger_g.log("                B+Enter  -  open MBAA.exe to change the screen size. use 640x480, 1280x960, or 1920x1440 for framestep.")
+            debugLogger_g.log("                  Tip: Select your screen size in the drop down, then CLOSE mbaa.exe instead of clicking \"Ok\"")
+            debugLogger_g.log("                C+Enter  -  pre-configure controls. useful for framestep mode")
+            debugLogger_g.log("")
+        debugLogger_g.log("3+Enter  -  OBS Integration...")
+        if activeSubMenu == "OBS":
+            debugLogger_g.log("            A+Enter  -  enabled: " + ("On" if OBSControllerObj.enabled else "Off"))
+            if OBSControllerObj.enabled:
+                if OBSControllerObj.connected:
+                    debugLogger_g.log("            connection established")
+                else:
+                    debugLogger_g.log("            B+Enter  -  port: " + str(OBSControllerObj.port))
+                    debugLogger_g.log("            C+Enter  -  password: " + "*"*len(OBSControllerObj.password))
+                    debugLogger_g.log("            D+Enter  -  connect")
+            debugLogger_g.log("")
+        debugLogger_g.log("4+Enter  -  debug level: " + ["Regular(recommended)", "Verbose", "Trace"][debugLogger_g.debugLevel])
+        debugLogger_g.log("5+Enter  -  desync detection level: " + ["Regular(recommended)", "Lax", "Very Lax", "Off"][desyncLevel])
+        debugLogger_g.log("--")
+        debugLogger_g.log("\nWhen ready to begin, drag your folder of replays onto this window then press Enter")
         replayPath = input("==> ").strip("\"")
         
+        if newerVersionExists[0] and replayPath == "0":
+            webbrowser.open(GITHUB_RELEASE + newerVersionExists[1], new=0, autoraise=True)
+            wrapup()
+        
         if replayPath == "1":
-            sortStyle_g = (sortStyle_g + 1) % 2
+            sortStyle = (sortStyle + 1) % 2
             continue
+            
         if replayPath == "2":
-            debugLogger_g.debugLevel = (debugLogger_g.debugLevel + 1) % 3
+            activeSubMenu = ("framestep" if activeSubMenu != "framestep" else "")
             continue
-        if replayPath == "3":
-            desyncLevel = (desyncLevel + 1) % 4
-            if desyncLevel == 3:
-                desyncThreshold_g = 9999
-            else:
-                desyncThreshold_g = 60 + 30 * desyncLevel
+            
+        if activeSubMenu == "framestep" and replayPath.lower() == "a":
+            framestepFlag = not framestepFlag
             continue
-        if replayPath == "4":
-            framestepFlag_g = not framestepFlag_g
-            continue
-        if replayPath.lower() == "5":
+            
+        if activeSubMenu == "framestep" and replayPath.lower() == "b":
             os.system('cls')
             os.startfile("MBAA.exe")
             
@@ -246,7 +348,7 @@ def main():
         
             continue
             
-        if replayPath.lower() == "6":
+        if activeSubMenu == "framestep" and replayPath.lower() == "c":
             os.system('cls')
             
             # launch cccaster
@@ -254,7 +356,7 @@ def main():
 
             # wait for cccaster to open
             os.system('cls')
-            debugLogger_g.vprint("Please wait for CCCaster to open...")
+            debugLogger_g.log("Please wait for CCCaster to open...")
             cccasterPid = 0
             while cccasterPid == 0:
                 cccasterPid = getPid("cccaster", ".exe")
@@ -266,7 +368,7 @@ def main():
 
             # wait for replay mode to launch
             os.system('cls')
-            debugLogger_g.vprint("Please wait for MBAA to open...")
+            debugLogger_g.log("Please wait for MBAA to open...")
             while meltyPid_g == 0:
                 meltyPid_g = getPid("MBAA.exe")
                 wait(0.1)
@@ -294,31 +396,84 @@ def main():
         
             continue
         
+        if replayPath.lower() == "3":
+            activeSubMenu = ("OBS" if activeSubMenu != "OBS" else "")
+            continue
+        
+        if activeSubMenu == "OBS" and replayPath.lower() == "a" :
+            OBSControllerObj.enabled = not OBSControllerObj.enabled
+            continue
+            
+        if activeSubMenu == "OBS" and replayPath.lower() == "b":
+            os.system('cls')
+            while True:
+                try:
+                    obsPortTemp = int(input("Enter OBS WebSocket port (default 4455): " ))
+                    if obsPortTemp < 0 or 65535 < obsPortTemp:
+                        raise ValueError
+                    OBSControllerObj.port = obsPortTemp
+                    break
+                except ValueError :
+                    debugLogger_g.log("Please provide a valid port in the range 0-65535")
+            continue
+                    
+        if activeSubMenu == "OBS" and replayPath.lower() == "c":
+            os.system('cls')
+            OBSControllerObj.password = getpass("Enter OBS WebSocket password (leave blank if authorization is disabled): ")
+            continue
+            
+        if activeSubMenu == "OBS" and replayPath.lower() == "d":
+            if not OBSControllerObj.connected:
+                os.system('cls')
+                debugLogger_g.log("Trying to connect...")
+                OBSControllerObj.connect()
+            input("\nPress Enter to return")
+            continue
+        
+        if replayPath == "4":
+            debugLogger_g.debugLevel = (debugLogger_g.debugLevel + 1) % 3
+            continue
+            
+        if replayPath == "5":
+            desyncLevel = (desyncLevel + 1) % 4
+            if desyncLevel == 3:
+                desyncThreshold = 9999
+            else:
+                desyncThreshold = 60 + 30 * desyncLevel
+            continue
+        
         # if they didn't pick a menu option, see if it's a valid path or not
         if not os.path.exists(replayPath):
-            debugLogger_g.vprint("Unable to load given replay folder")
+            debugLogger_g.log("Unable to load given replay folder")
         else: # path found
+            os.system('cls')
+            
             # get a list of files that will be copied one-by-one to the replay folder
-            if sortStyle_g == 0:    #by date
+            if sortStyle == 0:    #by date
                 replayFiles = sorted(Path(replayPath).iterdir(), key=os.path.getmtime)
-            elif sortStyle_g == 1:  # alphabetical
+            elif sortStyle == 1:  # alphabetical
                 replayFiles = sorted(Path(replayPath).iterdir())
                 
             # find out how many replays there are
             replayTotal = len(replayFiles)
-            debugLogger_g.vprint("\n" + str(replayTotal) + " replays detected")
+            debugLogger_g.log("\n" + str(replayTotal) + " replays detected")
+            
+            if OBSControllerObj.connect() != 0:
+                debugLogger_g.log("\nError connecting to OBS.  Make sure OBS is open and configured correctly.")
+                input("Press Enter to return")
             
             # add the replay folder if it doesn't exist already
             if not os.path.exists("ReplayVS"):
-                debugLogger_g.vprint("Creating ReplayVS folder")
+                debugLogger_g.vlog("Creating ReplayVS folder")
                 os.makedirs("ReplayVS")
                 
             # add the replay folder if it doesn't exist already
             if not os.path.exists("ReplayVS\\$"):
-                debugLogger_g.vprint("Creating $ folder")
+                debugLogger_g.vlog("Creating $ folder")
                 os.makedirs("ReplayVS\\$")
-        
-            debugLogger_g.vprint("\nMBAA is going to open after you press Enter again.\nAfter it opens come back to this console.", True)
+            
+            debugLogger_g.log("\nMBAA is going to open after you press Enter again.\nAfter it opens come back to this console.")
+            input("")
             break
 
     # launch cccaster
@@ -326,14 +481,14 @@ def main():
 
     # wait for cccaster to open
     os.system('cls')
-    debugLogger_g.vprint("Please wait for CCCaster to open...")
+    debugLogger_g.log("Please wait for CCCaster to open...")
     cccasterPid = 0
     while cccasterPid == 0:
         cccasterPid = getPid("cccaster", ".exe")
         wait(0.1)
 
     # open in framestep mode if it was chosen
-    if framestepFlag_g:
+    if framestepFlag:
         keyboard.press('f8')
 
     # launch replay mode
@@ -342,7 +497,7 @@ def main():
 
     # wait for replay mode to launch
     os.system('cls')
-    debugLogger_g.vprint("Please wait for MBAA to open...")
+    debugLogger_g.log("Please wait for MBAA to open...")
     while meltyPid_g == 0:
         meltyPid_g = getPid("MBAA.exe")
         wait(0.1)
@@ -350,15 +505,20 @@ def main():
     # give the user a pep talk
     wait(2)
     os.system('cls')
-    debugLogger_g.vprint("Open your recording software of choice now")
-    debugLogger_g.vprint("")
-    debugLogger_g.vprint("Make sure Player 1 is not assigned to a controller in the F4 menu")
-    debugLogger_g.vprint("")
-    debugLogger_g.vprint("Make sure Melty is NOT in fullscreen")
-    debugLogger_g.vprint("")
-    debugLogger_g.vprint("To begin playback, press Enter now", True)
+    if OBSControllerObj.enabled and OBSControllerObj.connected:
+        debugLogger_g.log("OBS is connected and will automatically handle starting and stopping the recording.")
+    else:
+        debugLogger_g.log("Open your recording software of choice now.")
+        debugLogger_g.log("Remember to stop the recording once playback has ended.")
+    debugLogger_g.log("")
+    debugLogger_g.log("Make sure Player 1 is not assigned to a controller in the F4 menu.")
+    debugLogger_g.log("")
+    debugLogger_g.log("Make sure Melty is NOT in fullscreen.")
+    debugLogger_g.log("")
+    debugLogger_g.log("When you are ready to begin playback, press Enter on this window.")
+    input("")
     os.system('cls')
-    debugLogger_g.vprint("Playback has begun.  Please do wait for the replay to finish.")
+    debugLogger_g.log("Playback has begun.  Please wait for the replay to finish.")
 
     # re-focus MBAA
     focusApp(meltyPid_g)
@@ -366,7 +526,7 @@ def main():
     keyboard.release('f8')
 
     # change the controls
-    if not framestepFlag_g:
+    if not framestepFlag:
         pressKey('f4')
         pressKey('left')
         pressKey('left')
@@ -422,25 +582,25 @@ def main():
     paraRoundCount = Parameter(4, 0x14CFE4)
 
     # navigate the replay menu
-    debugLogger_g.vprint("Total replays: " + str(replayTotal))
+    debugLogger_g.log("Total replays: " + str(replayTotal))
     for currentRep in range(replayTotal):
-        debugLogger_g.vprint("Starting Replay: " + str(currentRep+1))
+        debugLogger_g.log("Starting Replay: " + str(currentRep+1))
         
         # Delete the old replay...
         try:
-            debugLogger_g.vprint("Deleting old replay")
+            debugLogger_g.log("Deleting old replay")
             shutil.rmtree("ReplayVS\\$")
         except:
             pass
         
         # ...and copy the next one
         try:
-            debugLogger_g.vprint("Copying replay #" + str(currentRep+1) + ": " + str(replayFiles[currentRep]))
+            debugLogger_g.log("Copying replay #" + str(currentRep+1) + ": " + str(replayFiles[currentRep]))
             os.makedirs("ReplayVS\\$")
             shutil.copy(replayFiles[currentRep] , "ReplayVS\\$")
-            debugLogger_g.vprint("Replay Copied")
+            debugLogger_g.log("Replay Copied")
         except:
-            debugLogger_g.vprint("Failed to copy replay")
+            debugLogger_g.log("Failed to copy replay")
             wrapup()
         
         # Select the current replay
@@ -449,6 +609,9 @@ def main():
         wait(0.2)
         pressKey('2')# get off the "go up" folder
         pressKey('4')   # select recording
+        
+        OBSControllerObj.resume()
+        
         wait(1)
         pressKey('4')   # skip vs screen
         wait(0.5)
@@ -477,7 +640,7 @@ def main():
             
             # detect a round ending
             if P1.oldScore != p1ParaScore.num or P2.oldScore != p2ParaScore.num:
-                debugLogger_g.vprint("Round end detected P1-" + str(p1ParaScore.num) + " P2-" + str(p2ParaScore.num))
+                debugLogger_g.log("Round end detected P1-" + str(p1ParaScore.num) + " P2-" + str(p2ParaScore.num))
                 
                 P1.oldScore = p1ParaScore.num
                 P2.oldScore = p2ParaScore.num
@@ -499,14 +662,15 @@ def main():
             if (P1.oldX == p1ParaX.num and P2.oldX == p2ParaX.num and P1.oldY == p1ParaY.num and P2.oldY == p2ParaY.num and P1.oldHealth == p1ParaHealth.num and P2.oldHealth == p2ParaHealth.num and P1.oldMeter == p1ParaMeter.num and P2.oldMeter == p2ParaMeter.num):
                 desyncCounter += 1
                 if desyncCounter % 10 == 0 and desyncCounter != 0:
-                    debugLogger_g.vprint("Desync Counter " + str(desyncCounter) + "/" + str(desyncThreshold_g))
-                    debugLogger_g.vprint("P1-"+P1.toString()+" P2-"+P2.toString())
-                if desyncCounter == desyncThreshold_g:
-                    debugLogger_g.vprint("Desync or Disconnect Detected")
+                    debugLogger_g.log("Desync Counter " + str(desyncCounter) + "/" + str(desyncThreshold))
+                    debugLogger_g.log("P1-"+P1.toString()+" P2-"+P2.toString())
+                if desyncCounter == desyncThreshold:
+                    debugLogger_g.log("Desync or Disconnect Detected")
+                    OBSControllerObj.pause()
                     if getPid("MBAA.exe") == 0:
                         wrapup()
                     getParameter(paraRoundCount, programHandle, baseAddress)
-                    if paraRoundCount.num == 1:
+                    if paraRoundCount.num == 1:     #every round 1 desync can be handled by hitting next round
                         pressKey('5')       # pause
                         pressKey('2')
                         pressKey('2')
@@ -514,7 +678,7 @@ def main():
                         pressKey('2')
                         pressKey('4')       # next round
                     # final round or the health 
-                    elif paraRoundCount.num == 3:
+                    elif paraRoundCount.num == 3:   #every round 3 desync can be handled by hitting Return
                         pressKey('5')       # pause
                         pressKey('2')
                         pressKey('2')
@@ -544,7 +708,7 @@ def main():
                         time.sleep(1)
                         getParameter(paraRoundCount, programHandle, baseAddress)
                         if paraRoundCount.num == 2:
-                            debugLogger_g.vprint("Desync edge case detected B)")
+                            debugLogger_g.log("Desync edge case detected")
                             pressKey('5')           # if Next was not pressed, open Start again
                             pressKey('8')
                             pressKey('8')          # go down to Return
@@ -553,6 +717,7 @@ def main():
                             pressKey('2')        # select confirm
                             pressKey('4')           # confirm
                             leaveEarlyFlag = True
+                    OBSControllerObj.resume()
                         
             else:
                 desyncCounter = 0
@@ -569,10 +734,12 @@ def main():
             wait(0.1)
             
         # exit a finished replay
-        debugLogger_g.vprint("Replay " + str(currentRep) + " finished")
-        if desyncCounter < desyncThreshold_g:
+        debugLogger_g.log("Replay " + str(currentRep) + " finished")
+        
+        if desyncCounter < desyncThreshold:
             pressKey('6')   # skip game end quote
             wait(1)
+            OBSControllerObj.pause()    # most aesthetic spot to pause
             pressKey('6')   # skip closeup
             wait(1)
             pressKey('2')# highlight Replay Selection
@@ -587,6 +754,7 @@ def main():
         #    input("MBAA closed")
         #    break
 
+    OBSControllerObj.stop()
     wrapup()
 
 if __name__ == '__main__':
