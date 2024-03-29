@@ -312,6 +312,11 @@ def main():
             if not os.path.exists("ReplayVS"):
                 debugLogger_g.vprint("Creating ReplayVS folder")
                 os.makedirs("ReplayVS")
+                
+            # add the replay folder if it doesn't exist already
+            if not os.path.exists("ReplayVS\\$"):
+                debugLogger_g.vprint("Creating $ folder")
+                os.makedirs("ReplayVS\\$")
         
             debugLogger_g.vprint("\nMBAA is going to open after you press Enter again.\nAfter it opens come back to this console.", True)
             break
