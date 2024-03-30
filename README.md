@@ -34,7 +34,7 @@ You need [OBS](https://obsproject.com/) version 28.0.0 or later.
 - In OBS, in the Scenes tab, press the [+] button, give the scene a name, then press Ok.
 - In the Sources tab, press the [+] button, select Window Capture, press Ok, in the Window dropdown, find MBAA.exe (it must be open), then press Ok.
 - In the Scenes tab, press the [+] button, select Application Audio Capture, press Ok, in the Window dropdown, find MBAA.exe (it must be open), then press Ok.
-- In the Audio Mixer tab, but the Desktop Audio and Mic/Aux audio channels.
+- In the Audio Mixer tab, mute the Desktop Audio and Mic/Aux audio channels.
 
 ### Enable WebSockets
 ![alt text](https://github.com/WillHildreth/MBAACC-Training-Tools/blob/main/images/OBS_WebSocket.png?raw=true)
