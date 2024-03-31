@@ -1,6 +1,6 @@
 ![alt text](https://github.com/WillHildreth/MBAACC-Training-Tools/blob/main/images/icon_raw.png?raw=true)
 
-# Fang Replay Tool v1.7
+# Fang Replay Tool v1.8
 This is a tool which offers the ability to create a playlist of replays and automatically play them one after another without any user input required.  It has the ability to detect desyncs and can skip them on its own.  Please please please let me know if you have bugs or it does not work for you.  My discord handle is "Fang\_\_\_"
 
 ### Step 1: Setup
