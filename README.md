@@ -85,7 +85,7 @@ There are a lot of edge cases that can be hard to detect, so the script sends a 
 
 ### It looks like setting controls in f4 isn't working correctly
 
-First, make sure you don't have an controllers set as player 1.
+First, make sure you don't have any controllers set as player 1.
 
 If you have a foreign keyboard (this is common with Japanese), then the f4 menu won't work as expected.  In that case, always use framestep mode and manually set the controls beforehand as follows:
 - up is '8'
