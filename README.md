@@ -4,7 +4,7 @@
 This is a tool which offers the ability to create a playlist of replays and automatically play them one after another without any user input required.  It has the ability to detect desyncs and can skip them on its own.  Please please please let me know if you have bugs or it does not work for you.  My discord handle is "Fang\_\_\_"
 
 ### Step 1: Setup
-Download the [latest version](https://github.com/fangdreth/MBAACC-Training-Tools/releases/tag/v1.7) and copy "RepReplay.exe" into the same folder as CCCaster and MBAA.exe.
+Download the [latest version](https://github.com/fangdreth/MBAACC-Training-Tools/releases/tag/v1.8) and copy "RepReplay.exe" into the same folder as CCCaster and MBAA.exe.
 
 ### Step 2: Prepare your replay files
 Create a folder anywhere on you computer, then copy the replays you want to record into that folder.  By default, replays are saved in the same directory as CCCaster in a folder called "ReplayVS".
